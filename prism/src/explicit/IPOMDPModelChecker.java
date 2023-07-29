@@ -643,7 +643,6 @@ public class IPOMDPModelChecker extends ProbModelChecker
 		{
 			// Add constraints about the policy
 			policyMustBeObservationBased();
-			policyMustPreserveUnderlyingGraph();
 			policyMustBeValidDistribution();
 
 			// Add constraints about the IPOMDP itself
@@ -934,24 +933,6 @@ public class IPOMDPModelChecker extends ProbModelChecker
 			}
 		}
 
-		private void policyMustPreserveUnderlyingGraph() throws GRBException
-		{
-			double smallValue = 1e-5;
-
-			for (int s : simpleIPOMDP.uncertainStates) {
-				GRBLinExpr underlyingGraph = new GRBLinExpr();
-				underlyingGraph.addTerm(1.0, policyVars[2 * s]);
-				model.addConstr(underlyingGraph, GRB.GREATER_EQUAL, smallValue, "underlyingGraph" + s);
-			}
-
-			for (int s : simpleIPOMDP.actionStates)
-				for (int k = 0; k <= 1; k++) {
-					GRBLinExpr underlyingGraph = new GRBLinExpr();
-					underlyingGraph.addTerm(1.0, policyVars[2 * s + k]);
-					model.addConstr(underlyingGraph, GRB.GREATER_EQUAL, smallValue, "underlyingGraph" + (s + k));
-				}
-		}
-
 		private void policyMustBeValidDistribution() throws GRBException
 		{
 			for (int s : simpleIPOMDP.uncertainStates) {
@@ -1092,13 +1073,13 @@ public class IPOMDPModelChecker extends ProbModelChecker
 		remain.flip(0, remain.size() - 1);
 
 		// Construct the product between the IPOMDP and the FSC
-		ProductBetweenIPOMDPAndFSC product = new ProductBetweenIPOMDPAndFSC(ipomdp, mdpRewards, remain, target, 1);
+		ProductBetweenIPOMDPAndFSC product = new ProductBetweenIPOMDPAndFSC(ipomdp, mdpRewards, remain, target, 2);
 
 		// Return result vector
 		ModelCheckerResult res = new ModelCheckerResult();
 		res.soln = new double[ipomdp.getNumStates()];
-		//res.soln[ipomdp.getFirstInitialState()] = applyIterativeAlgorithm(product.ipomdp, product.rewards, product.remain, product.target, product.initialState, product.observationList, minMax);
-		res.soln[ipomdp.getFirstInitialState()] = applyGeneticAlgorithm(product.ipomdp, product.rewards, product.remain, product.target, product.initialState, product.observationList, minMax);
+		res.soln[ipomdp.getFirstInitialState()] = applyIterativeAlgorithm(product.ipomdp, product.rewards, product.remain, product.target, product.initialState, product.observationList, minMax);
+		//res.soln[ipomdp.getFirstInitialState()] = applyGeneticAlgorithm(product.ipomdp, product.rewards, product.remain, product.target, product.initialState, product.observationList, minMax);
 		return res;
 	}
 
@@ -1112,7 +1093,7 @@ public class IPOMDPModelChecker extends ProbModelChecker
 			throw new PrismException("Could not initialise... " +  e.getMessage());
 		}
 
-		int numAttempts = 1;
+		int numAttempts = 10;
 		boolean hasBeenAssigned = false;
 		SolutionPoint bestPoint = new SolutionPoint();
 		for (int i = 0; i < numAttempts; i++) {
