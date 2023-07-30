@@ -1047,12 +1047,40 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 	 * @param minMax     Min/max info
 	 */
 	public ModelCheckerResult computeReachRewards(IPOMDP<Double> ipomdp, MDPRewards<Double> mdpRewards, BitSet target, MinMax minMax) throws PrismException {
-		// The number of states in the Finite State Controller (FSC)
-		int memoryStates = 2;
+		// In case of reaching rewards
+		// Find states from which any choice has probability < 1 of reaching target set
+		BitSet infReward = new BitSet(ipomdp.getNumStates());
+		if (minMax.isMin()) {
+			MDPModelChecker mcProb1 = new MDPModelChecker(null);
+			infReward = mcProb1.prob1(ipomdp, null, target, false, null);
+			infReward.flip(0, ipomdp.getNumStates());
+		}
+
+		IPOMDPSimple<Double> nonInfiniteIPOMDP = (IPOMDPSimple<Double>) ipomdp;
+		MDPRewardsSimple<Double> nonInfiniteRewards = (MDPRewardsSimple<Double>) mdpRewards;
+
+		int indexOfTargetState = target.nextSetBit(0);
+		int indexOfInfState = infReward.nextSetBit(0);
+		while (indexOfInfState >= 0) {
+			Distribution<Interval<Double>> distribution = new Distribution<>(Evaluator.forDoubleInterval());
+			distribution.add(indexOfTargetState, new Interval<>(1.0, 1.0));
+			int numChoices = ipomdp.getNumChoices(indexOfInfState);
+
+			nonInfiniteIPOMDP.addActionLabelledChoice(indexOfInfState, distribution, numChoices);
+			nonInfiniteRewards.setTransitionReward(indexOfInfState, numChoices, 1e4);
+
+			indexOfInfState = infReward.nextSetBit(indexOfInfState + 1);
+		}
+
+		ipomdp = nonInfiniteIPOMDP;
+		mdpRewards = nonInfiniteRewards;
 
 		// By default, the agent can remain in any states
 		BitSet remain = new BitSet(ipomdp.getNumStates());
 		remain.flip(0, remain.size() - 1);
+
+		// The number of states in the Finite State Controller (FSC)
+		int memoryStates = 1;
 
 		// Construct the product between the IPOMDP and the FSC
 		ProductBetweenIPOMDPAndFSC product = new ProductBetweenIPOMDPAndFSC(ipomdp, mdpRewards, remain, target, memoryStates);
