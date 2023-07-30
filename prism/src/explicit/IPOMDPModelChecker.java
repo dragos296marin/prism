@@ -416,7 +416,7 @@ public class IPOMDPModelChecker extends ProbModelChecker
 		{
 			int numTransitions = simpleIPOMDP.transitions[state].size();
 			ArrayList<Double> intervals = new ArrayList<>();
-			boolean feasible = false;
+			boolean feasible = (main[state] == (1 << 30));
 			double epsilon = 1e-3;
 
 			while (!feasible) {
@@ -570,6 +570,10 @@ public class IPOMDPModelChecker extends ProbModelChecker
 				main = InducedIDTMCFromIPOMDPAndPolicy.ComputeReachabilityRewards(simpleIPOMDP, policy, simpleSpecification);
 			else
 				main = InducedIDTMCFromIPOMDPAndPolicy.ComputeReachabilityProbabilities(simpleIPOMDP, policy, simpleSpecification);
+
+			for (int i = 0; i < main.length; i++)
+				if (main[i] == Double.POSITIVE_INFINITY)
+					main[i] = 1 << 30;
 
 			ArrayList<Double>[] intervalProbabilities = new ArrayList[numStates];
 			for (int state : simpleIPOMDP.uncertainStates) {
@@ -758,10 +762,18 @@ public class IPOMDPModelChecker extends ProbModelChecker
 
 		private double[] computeMainUsingPolicy(double[] policy) throws PrismException
 		{
+			double[] main;
 			if (specification.isRewardSpecification)
-				return InducedIDTMCFromIPOMDPAndPolicy.ComputeReachabilityRewards(simpleIPOMDP, policy, specification);
+				main = InducedIDTMCFromIPOMDPAndPolicy.ComputeReachabilityRewards(simpleIPOMDP, policy, specification);
 			else
-				return InducedIDTMCFromIPOMDPAndPolicy.ComputeReachabilityProbabilities(simpleIPOMDP, policy, specification);
+				main = InducedIDTMCFromIPOMDPAndPolicy.ComputeReachabilityProbabilities(simpleIPOMDP, policy, specification);
+
+			// Set the inf values to a huge constant
+			for (int i = 0; i < main.length; i++)
+				if (main[i] == Double.POSITIVE_INFINITY)
+					main[i] = 1 << 30;
+
+			return main;
 		}
 
 		private ArrayList<Double>[] computeIntervalProbabilities(double[] main)
@@ -839,6 +851,8 @@ public class IPOMDPModelChecker extends ProbModelChecker
 			double trustRegion = parameters.trustRegion + 1;
 
 			for (int s = 0; s < numStates; s++) {
+				if (main[s] == 1 << 30) continue;
+
 				GRBLinExpr firstConstraint = new GRBLinExpr();
 				firstConstraint.addTerm(1.0, mainVars[s]);
 				model.addConstr(firstConstraint, GRB.GREATER_EQUAL, main[s] / trustRegion, "trustRegionMainLeft" + s);
@@ -874,6 +888,7 @@ public class IPOMDPModelChecker extends ProbModelChecker
 				// If current state is part of the target set then skip
 				if (specification.target.get(state)) continue;
 				if (!specification.remain.get(state)) continue;
+				if (specification.forbidden.get(state)) continue;
 
 				int n = simpleIPOMDP.transitions[state].size();
 
@@ -917,6 +932,7 @@ public class IPOMDPModelChecker extends ProbModelChecker
 				// If current state is part of the target set then skip
 				if (specification.target.get(state)) continue;
 				if (!specification.remain.get(state)) continue;
+				if (specification.forbidden.get(state)) continue;
 
 				int n = simpleIPOMDP.transitions[state].size();
 				int m = 2 * n + 2;
