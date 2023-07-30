@@ -398,7 +398,7 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 			boolean feasible = false;
 			double epsilon = 1e-3;
 
-			while (!feasible) {
+			while (!feasible && epsilon < 10) {
 				try {
 					GRBModel model = new GRBModel(env);
 
@@ -632,6 +632,7 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 			// Add constraints about the policy
 			policyMustBeObservationBased();
 			policyMustBeValidDistribution();
+			policyMustPreserveUnderlyingGraph();
 
 			// Add constraints about the IPOMDP itself
 			addConstraintsForGoalStates();
@@ -650,6 +651,7 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 
 			// Compute the rewards/reaching probabilities given the policy
 			double[] main = computeMainUsingPolicy(policy);
+
 
 			// Compute the values of the interval transitions which generated the solution
 			ArrayList<Double>[] intervalProbabilities = computeIntervalProbabilities(main);
@@ -911,6 +913,23 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 			}
 		}
 
+		private void policyMustPreserveUnderlyingGraph() throws GRBException {
+			double smallValue = 1e-7;
+
+			for (int s : simpleIPOMDP.uncertainStates) {
+				GRBLinExpr underlyingGraph = new GRBLinExpr();
+				underlyingGraph.addTerm(1.0, policyVars[2 * s]);
+				model.addConstr(underlyingGraph, GRB.GREATER_EQUAL, smallValue, "underlyingGraph" + s);
+			}
+
+			for (int s : simpleIPOMDP.actionStates)
+				for (int k = 0; k <= 1; k++) {
+					GRBLinExpr underlyingGraph = new GRBLinExpr();
+					underlyingGraph.addTerm(1.0, policyVars[2 * s + k]);
+					model.addConstr(underlyingGraph, GRB.GREATER_EQUAL, smallValue, "underlyingGraph" + (s + k));
+				}
+		}
+
 		private void policyMustBeValidDistribution() throws GRBException {
 			for (int s : simpleIPOMDP.uncertainStates) {
 				GRBLinExpr validDistribution = new GRBLinExpr();
@@ -1033,8 +1052,8 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 		// Return result vector
 		ModelCheckerResult res = new ModelCheckerResult();
 		res.soln = new double[ipomdp.getNumStates()];
-		res.soln[ipomdp.getFirstInitialState()] = applyIterativeAlgorithm(product.ipomdp, product.rewards, product.remain, product.target, product.initialState, product.observationList, minMax);
-		//res.soln[ipomdp.getFirstInitialState()] = applyGeneticAlgorithm(product.ipomdp, product.rewards, product.remain, product.target, product.initialState, product.observationList, minMax);
+		//res.soln[ipomdp.getFirstInitialState()] = applyIterativeAlgorithm(product.ipomdp, product.rewards, product.remain, product.target, product.initialState, product.observationList, minMax);
+		res.soln[ipomdp.getFirstInitialState()] = applyGeneticAlgorithm(product.ipomdp, product.rewards, product.remain, product.target, product.initialState, product.observationList, minMax);
 		return res;
 	}
 
@@ -1067,7 +1086,7 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 			int numChoices = ipomdp.getNumChoices(indexOfInfState);
 
 			nonInfiniteIPOMDP.addActionLabelledChoice(indexOfInfState, distribution, numChoices);
-			nonInfiniteRewards.setTransitionReward(indexOfInfState, numChoices, 1e4);
+			nonInfiniteRewards.setTransitionReward(indexOfInfState, numChoices, 1000.0);
 
 			indexOfInfState = infReward.nextSetBit(indexOfInfState + 1);
 		}
@@ -1119,7 +1138,7 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 			SolutionPoint solutionPoint = new SolutionPoint(transformationProcess, simpleSpecification, parameters);
 
 			// Converge the point
-			while (solutionPoint.GetCloserTowardsOptimum() == true) ;
+			while (solutionPoint.GetCloserTowardsOptimum() == true);
 
 			// Update the best point
 			if (hasBeenAssigned == false || solutionPoint.specification.objectiveDirection * solutionPoint.objective < solutionPoint.specification.objectiveDirection * bestPoint.objective) {
