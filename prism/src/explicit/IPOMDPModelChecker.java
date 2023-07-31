@@ -199,7 +199,7 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 			// Flip the initial bitset to get bad states
 			initRemain.flip(0, initRemain.size() - 1);
 
-			BitSet updatedRemain = new BitSet();
+			BitSet updatedRemain = new BitSet(simpleIPOMDP.getNumStates());
 			int indexOfGoalState = initRemain.nextSetBit(0);
 			while (indexOfGoalState >= 0 && indexOfGoalState < gadget.length) {
 				updatedRemain.set(gadget[indexOfGoalState]);
