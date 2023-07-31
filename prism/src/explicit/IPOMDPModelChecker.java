@@ -1052,8 +1052,8 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 		// Return result vector
 		ModelCheckerResult res = new ModelCheckerResult();
 		res.soln = new double[ipomdp.getNumStates()];
-		//res.soln[ipomdp.getFirstInitialState()] = applyIterativeAlgorithm(product.ipomdp, product.rewards, product.remain, product.target, product.initialState, product.observationList, minMax);
-		res.soln[ipomdp.getFirstInitialState()] = applyGeneticAlgorithm(product.ipomdp, product.rewards, product.remain, product.target, product.initialState, product.observationList, minMax);
+		res.soln[ipomdp.getFirstInitialState()] = applyIterativeAlgorithm(product.ipomdp, product.rewards, product.remain, product.target, product.initialState, product.observationList, minMax);
+		//res.soln[ipomdp.getFirstInitialState()] = applyGeneticAlgorithm(product.ipomdp, product.rewards, product.remain, product.target, product.initialState, product.observationList, minMax);
 		return res;
 	}
 
@@ -1086,8 +1086,8 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 			int numChoices = ipomdp.getNumChoices(indexOfInfState);
 
 			nonInfiniteIPOMDP.addActionLabelledChoice(indexOfInfState, distribution, numChoices);
-			nonInfiniteRewards.setTransitionReward(indexOfInfState, numChoices, 1000.0);
-
+			nonInfiniteRewards.setTransitionReward(indexOfInfState, numChoices, 10000.0);
+			
 			indexOfInfState = infReward.nextSetBit(indexOfInfState + 1);
 		}
 
@@ -1107,8 +1107,8 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 		// Return result vector
 		ModelCheckerResult res = new ModelCheckerResult();
 		res.soln = new double[ipomdp.getNumStates()];
-		//res.soln[ipomdp.getFirstInitialState()] = applyIterativeAlgorithm(product.ipomdp, product.rewards, product.remain, product.target, product.initialState, product.observationList, minMax);
-		res.soln[ipomdp.getFirstInitialState()] = applyGeneticAlgorithm(product.ipomdp, product.rewards, product.remain, product.target, product.initialState, product.observationList, minMax);
+		res.soln[ipomdp.getFirstInitialState()] = applyIterativeAlgorithm(product.ipomdp, product.rewards, product.remain, product.target, product.initialState, product.observationList, minMax);
+		//res.soln[ipomdp.getFirstInitialState()] = applyGeneticAlgorithm(product.ipomdp, product.rewards, product.remain, product.target, product.initialState, product.observationList, minMax);
 		return res;
 	}
 
@@ -1121,7 +1121,7 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 			throw new PrismException("Could not initialise... " + e.getMessage());
 		}
 
-		int numAttempts = 10;
+		int numAttempts = 1;
 		boolean hasBeenAssigned = false;
 		SolutionPoint bestPoint = new SolutionPoint();
 		for (int i = 0; i < numAttempts; i++) {
@@ -1138,7 +1138,9 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 			SolutionPoint solutionPoint = new SolutionPoint(transformationProcess, simpleSpecification, parameters);
 
 			// Converge the point
-			while (solutionPoint.GetCloserTowardsOptimum() == true);
+			while (solutionPoint.GetCloserTowardsOptimum() == true) {
+				System.out.println(solutionPoint.objective);
+			}
 
 			// Update the best point
 			if (hasBeenAssigned == false || solutionPoint.specification.objectiveDirection * solutionPoint.objective < solutionPoint.specification.objectiveDirection * bestPoint.objective) {
