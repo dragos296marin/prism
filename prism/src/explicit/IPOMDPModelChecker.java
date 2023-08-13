@@ -254,7 +254,8 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 				int obs = observationList[state];
 				if (randomisedChoicesForObservation[obs] == null) {
 					randomisedChoicesForObservation[obs] = new ArrayList<>();
-					for (int choice = 0; choice < numChoices; choice++)
+					randomisedChoicesForObservation[obs].add(numChoices - 1);
+					for (int choice = 0; choice < numChoices - 1; choice++)
 						randomisedChoicesForObservation[obs].add(choice);
 
 					if (shuffleActivated)
@@ -1124,7 +1125,7 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 		int numAttempts = 1;
 		boolean hasBeenAssigned = false;
 		SolutionPoint bestPoint = new SolutionPoint();
-		for (int i = 0; i < numAttempts; i++) {
+		for (int attempt = 0; attempt < numAttempts; attempt++) {
 			// Construct the binary/simple version of the IPOMDP
 			TransformIntoSimpleIPOMDP transformationProcess = new TransformIntoSimpleIPOMDP(ipomdp, mdpRewards, initialState, true, observationList);
 
