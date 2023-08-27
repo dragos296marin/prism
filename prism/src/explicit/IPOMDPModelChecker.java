@@ -54,10 +54,15 @@ import java.lang.Math;
  * Explicit-state model checker for interval Markov decision processes (IMDPs).
  */
 public class IPOMDPModelChecker extends ProbModelChecker {
+	// The implemented subroutines for generating the initial assignment.
 	private enum TypeOfProcedure { uniformPolicy, randomisedPolicy, randomisedStructure }
 
+	// The environment of the Gurobi Solver.
 	private static GRBEnv env;
 
+	/**
+	 * Class for representing transitions in the simple IPOMDP.
+	 */
 	private class Edge {
 		public final int state;
 		public final Interval<Double> interval;
@@ -68,9 +73,15 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 		}
 	}
 
+	/**
+	 * Class for representing the distributions in the simple IPOMDP.
+	 */
 	private class SimpleDistribution extends ArrayList<Edge> {
 	}
 
+	/**
+	 * Class for integrating finite-memory policies.
+	 */
 	private class ProductBetweenIPOMDPAndFSC {
 		IPOMDPSimple<Double> ipomdp;
 		MDPRewardsSimple<Double> rewards;
@@ -148,6 +159,9 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 		}
 	}
 
+	/**
+	 * Class for constructing the simple variant of the given IPOMDP.
+	 */
 	private class TransformIntoSimpleIPOMDP {
 		private SimpleIPOMDP simpleIPOMDP;
 		private IPOMDP<Double> initialIPOMDP;
@@ -168,22 +182,6 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 			determineRewards(initialIPOMDP, rewards);
 
 			this.simpleIPOMDP.initialState = gadget[initialState];
-		}
-
-		public int[] getGadgetMapping() {
-			return this.gadget;
-		}
-
-		public ArrayList<Integer> getOrderOfTraversal() {
-			return this.traversal;
-		}
-
-		public SimpleIPOMDP getSimpleIPOMDP() {
-			return this.simpleIPOMDP;
-		}
-
-		public IPOMDP<Double> getInitialIPOMDP() {
-			return this.initialIPOMDP;
 		}
 
 		public BitSet computeTransformationTarget(BitSet initTarget) {
@@ -366,6 +364,9 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 		}
 	}
 
+	/**
+	 * Class which contains the particular characteristics of a simple IPOMDP (e.g., uncertain/action states).
+	 */
 	private class SimpleIPOMDP {
 		public ArrayList<Integer> uncertainStates;
 		public ArrayList<Integer> actionStates;
@@ -383,13 +384,16 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 		}
 	}
 
+	/**
+	 * Class for manipulating the induced IDTMC which results from applying the policy over the simple IPOMDP.
+	 */
 	static private class InducedIDTMCFromIPOMDPAndPolicy {
-		static public double[] ComputeReachabilityProbabilities(SimpleIPOMDP simpleIPOMDP, double[] policy, SpecificationForSimpleIPOMDP specification) throws PrismException {
+		static public double[] computeReachabilityProbabilities(SimpleIPOMDP simpleIPOMDP, double[] policy, SpecificationForSimpleIPOMDP specification) throws PrismException {
 			IDTMCSimple<Double> inducedIDTMC = createInducedIDTMC(simpleIPOMDP, policy);
 			return computeReachProbs(inducedIDTMC, specification);
 		}
 
-		static public double[] ComputeReachabilityRewards(SimpleIPOMDP simpleIPOMDP, double[] policy, SpecificationForSimpleIPOMDP specification) throws PrismException {
+		static public double[] computeReachabilityRewards(SimpleIPOMDP simpleIPOMDP, double[] policy, SpecificationForSimpleIPOMDP specification) throws PrismException {
 			IDTMCSimple<Double> inducedIDTMC = createInducedIDTMC(simpleIPOMDP, policy);
 			MCRewards<Double> rewardsIDTMC = createRewardStructure(simpleIPOMDP, policy);
 			return computeReachRewards(inducedIDTMC, rewardsIDTMC, specification);
@@ -507,8 +511,10 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 		}
 	}
 
+	/**
+	 * Class for initialising the variables (i.e., the policy assignment and the rest).
+	 */
 	static private class VariableHandler {
-
 		static public void initialiseVariables(Variables mainVariables, SimpleIPOMDP simpleIPOMDP, SpecificationForSimpleIPOMDP simpleSpecification, ProcedureForInitialAssignment procedureForInitialAssignment) throws PrismException {
 			int numStates = simpleIPOMDP.getNumStates();
 
@@ -524,9 +530,9 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 
 			double[] main;
 			if (simpleSpecification.isRewardSpecification)
-				main = InducedIDTMCFromIPOMDPAndPolicy.ComputeReachabilityRewards(simpleIPOMDP, policy, simpleSpecification);
+				main = InducedIDTMCFromIPOMDPAndPolicy.computeReachabilityRewards(simpleIPOMDP, policy, simpleSpecification);
 			else
-				main = InducedIDTMCFromIPOMDPAndPolicy.ComputeReachabilityProbabilities(simpleIPOMDP, policy, simpleSpecification);
+				main = InducedIDTMCFromIPOMDPAndPolicy.computeReachabilityProbabilities(simpleIPOMDP, policy, simpleSpecification);
 
 			ArrayList<Double>[] intervalProbabilities = new ArrayList[numStates];
 			for (int state : simpleIPOMDP.uncertainStates) {
@@ -542,6 +548,9 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 		}
 	}
 
+	/**
+	 * Class which contains the policy, the probabilities/rewards, and the interval probabilities (best-case scenario).
+	 */
 	private class Variables {
 		public double[] policy;
 		public double[] main;
@@ -558,6 +567,9 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 		}
 	}
 
+	/**
+	 * Class which contains the parameters of the Sequential Convex Programming routine.
+	 */
 	private class Parameters {
 		public double penaltyWeight;
 		public double trustRegion;
@@ -572,6 +584,9 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 		}
 	}
 
+	/**
+	 * Class for the equivalent property specification of the simple IPOMDP.
+	 */
 	private class SpecificationForSimpleIPOMDP {
 		public BitSet remain;
 		public BitSet target;
@@ -611,6 +626,9 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 		}
 	}
 
+	/**
+	 * Class for solving the resulting LP.
+	 */
 	private class LinearProgrammingWithGurobi {
 
 		private SimpleIPOMDP simpleIPOMDP;
@@ -714,9 +732,9 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 
 		private double[] computeMainUsingPolicy(double[] policy) throws PrismException {
 			if (specification.isRewardSpecification)
-				return InducedIDTMCFromIPOMDPAndPolicy.ComputeReachabilityRewards(simpleIPOMDP, policy, specification);
+				return InducedIDTMCFromIPOMDPAndPolicy.computeReachabilityRewards(simpleIPOMDP, policy, specification);
 			else
-				return InducedIDTMCFromIPOMDPAndPolicy.ComputeReachabilityProbabilities(simpleIPOMDP, policy, specification);
+				return InducedIDTMCFromIPOMDPAndPolicy.computeReachabilityProbabilities(simpleIPOMDP, policy, specification);
 		}
 
 		private ArrayList<Double>[] computeIntervalProbabilities(double[] main) {
@@ -964,6 +982,9 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 		}
 	}
 
+	/**
+	 * Class for choosing the procedure for generating the initial assignment (i.e., uniform policy, randomised policy, or randomised structure).
+	 */
 	private class ProcedureForInitialAssignment {
 		double policyProbability;
 		boolean shuffleActivated;
@@ -985,6 +1006,9 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 		}
 	}
 
+	/**
+	 * Class which contains details about the current assignment and applies the Sequential Convex Programming routine.
+	 */
 	private class SolutionPoint {
 		private TransformIntoSimpleIPOMDP transformationProcess;
 		private SpecificationForSimpleIPOMDP specification;
@@ -994,8 +1018,7 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 		private int iterationsLeft;
 		private int initialState;
 
-		public SolutionPoint() {
-		}
+		public SolutionPoint() {}
 
 		public SolutionPoint(TransformIntoSimpleIPOMDP transformationProcess, SpecificationForSimpleIPOMDP specification, Parameters parameters, ProcedureForInitialAssignment procedureForInitialAssignment) throws PrismException {
 			this.initialState = transformationProcess.simpleIPOMDP.initialState;
@@ -1137,8 +1160,8 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 	}
 
 	/**
-	 * Simple framework which runs the algorithm multiple times and remembers the best value
-	 * Very inefficient compared to the genetic approach
+	 * Iterative framework which runs the algorithm multiple times and remembers the best value.
+	 * It is currently adjusted for a single run of the uniform policy.
 	 */
 	private double applyIterativeAlgorithm(IPOMDP<Double> ipomdp, MDPRewards<Double> mdpRewards, BitSet remain, BitSet target, int initialState, int[] observationList, MinMax minMax) throws PrismException {
 		try {
@@ -1154,7 +1177,7 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 		SolutionPoint bestPoint = new SolutionPoint();
 		for (int attempt = 0; attempt < numAttempts; attempt++) {
 			// Choose the procedure for the initial assignment
-			ProcedureForInitialAssignment procedureForInitialAssignment = new ProcedureForInitialAssignment(TypeOfProcedure.uniformPolicy);
+			ProcedureForInitialAssignment procedureForInitialAssignment = new ProcedureForInitialAssignment(TypeOfProcedure.randomisedPolicy);
 
 			// Construct the binary/simple version of the IPOMDP
 			TransformIntoSimpleIPOMDP transformationProcess = new TransformIntoSimpleIPOMDP(ipomdp, mdpRewards, initialState, observationList, procedureForInitialAssignment);
@@ -1182,7 +1205,7 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 	}
 
 	/**
-	 * Genetic framework which supports both randomised policy and randomised structure
+	 * Genetic framework which supports both randomised policy and randomised structure.
 	 */
 	private double applyGeneticAlgorithm(IPOMDP<Double> ipomdp, MDPRewards<Double> mdpRewards, BitSet remain, BitSet target, int initialState, int[] observationList, MinMax minMax) throws PrismException {
 		try {
