@@ -74,7 +74,7 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 	}
 
 	/**
-	 * Class for representing the distributions in the simple IPOMDP.
+	 * Class for representing distributions in the simple IPOMDP.
 	 */
 	private class SimpleDistribution extends ArrayList<Edge> {
 	}
@@ -524,7 +524,7 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 			}
 
 			for (int s : simpleIPOMDP.actionStates) {
-				policy[2 * s] = procedureForInitialAssignment.policyProbability;
+				policy[2 * s] = procedureForInitialAssignment.probabilityToChooseAction;
 				policy[2 * s + 1] = 1 - policy[2 * s];
 			}
 
@@ -986,21 +986,21 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 	 * Class for choosing the procedure for generating the initial assignment (i.e., uniform policy, randomised policy, or randomised structure).
 	 */
 	private class ProcedureForInitialAssignment {
-		double policyProbability;
+		double probabilityToChooseAction;
 		boolean shuffleActivated;
 
 		public ProcedureForInitialAssignment(TypeOfProcedure typeOfProcedure) {
 			switch (typeOfProcedure) {
 				case randomisedStructure:
-					policyProbability = 0.5;
+					probabilityToChooseAction = 0.5;
 					shuffleActivated = true;
 					break;
 				case randomisedPolicy:
-					policyProbability = Math.random();
+					probabilityToChooseAction = Math.random();
 					shuffleActivated = false;
 					break;
 				default:
-					policyProbability = 0.5;
+					probabilityToChooseAction = 0.5;
 					shuffleActivated = false;
 			}
 		}
@@ -1125,6 +1125,7 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 		IPOMDPSimple<Double> nonInfiniteIPOMDP = (IPOMDPSimple<Double>) ipomdp;
 		MDPRewardsSimple<Double> nonInfiniteRewards = (MDPRewardsSimple<Double>) mdpRewards;
 
+		// Add dummy transitions to simulate the infinity rewards
 		int indexOfTargetState = target.nextSetBit(0);
 		int indexOfInfState = infReward.nextSetBit(0);
 		while (indexOfInfState >= 0) {
@@ -1177,7 +1178,7 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 		SolutionPoint bestPoint = new SolutionPoint();
 		for (int attempt = 0; attempt < numAttempts; attempt++) {
 			// Choose the procedure for the initial assignment
-			ProcedureForInitialAssignment procedureForInitialAssignment = new ProcedureForInitialAssignment(TypeOfProcedure.randomisedPolicy);
+			ProcedureForInitialAssignment procedureForInitialAssignment = new ProcedureForInitialAssignment(TypeOfProcedure.uniformPolicy);
 
 			// Construct the binary/simple version of the IPOMDP
 			TransformIntoSimpleIPOMDP transformationProcess = new TransformIntoSimpleIPOMDP(ipomdp, mdpRewards, initialState, observationList, procedureForInitialAssignment);
