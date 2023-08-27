@@ -51,9 +51,11 @@ import gurobi.*;
 import java.lang.Math;
 
 /**
- * Explicit-state model checker for interval Markov decision prcoesses (IMDPs).
+ * Explicit-state model checker for interval Markov decision processes (IMDPs).
  */
 public class IPOMDPModelChecker extends ProbModelChecker {
+	private enum TypeOfProcedure { uniformPolicy, randomisedPolicy, randomisedStructure }
+
 	private static GRBEnv env;
 
 	private class Edge {
@@ -153,12 +155,12 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 		private ArrayList<Integer> traversal;
 		private ArrayList<Integer>[] randomisedChoicesForState;
 		private int[] observationList;
-		boolean shuffleActivated;
+		ProcedureForInitialAssignment procedureForInitialAssignment;
 
-		public TransformIntoSimpleIPOMDP(IPOMDP<Double> initialIPOMDP, MDPRewards<Double> rewards, int initialState, boolean shuffleActivated, int[] observationList) {
+		public TransformIntoSimpleIPOMDP(IPOMDP<Double> initialIPOMDP, MDPRewards<Double> rewards, int initialState, int[] observationList, ProcedureForInitialAssignment procedureForInitialAssignment) {
 			this.initialIPOMDP = initialIPOMDP;
 			this.observationList = observationList;
-			this.shuffleActivated = shuffleActivated;
+			this.procedureForInitialAssignment = procedureForInitialAssignment;
 			this.simpleIPOMDP = new SimpleIPOMDP();
 			this.randomisedChoicesForState = new ArrayList[initialIPOMDP.getNumStates()];
 			determineSupportGraph(initialIPOMDP);
@@ -258,7 +260,7 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 					for (int choice = 0; choice < numChoices - 1; choice++)
 						randomisedChoicesForObservation[obs].add(choice);
 
-					if (shuffleActivated)
+					if (procedureForInitialAssignment.shuffleActivated)
 						Collections.shuffle(randomisedChoicesForObservation[obs]);
 				}
 
@@ -507,7 +509,7 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 
 	static private class VariableHandler {
 
-		static public void initialiseVariables(Variables mainVariables, SimpleIPOMDP simpleIPOMDP, SpecificationForSimpleIPOMDP simpleSpecification) throws PrismException {
+		static public void initialiseVariables(Variables mainVariables, SimpleIPOMDP simpleIPOMDP, SpecificationForSimpleIPOMDP simpleSpecification, ProcedureForInitialAssignment procedureForInitialAssignment) throws PrismException {
 			int numStates = simpleIPOMDP.getNumStates();
 
 			double[] policy = new double[2 * numStates];
@@ -516,7 +518,7 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 			}
 
 			for (int s : simpleIPOMDP.actionStates) {
-				policy[2 * s] = 0.5;
+				policy[2 * s] = procedureForInitialAssignment.policyProbability;
 				policy[2 * s + 1] = 1 - policy[2 * s];
 			}
 
@@ -962,6 +964,27 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 		}
 	}
 
+	private class ProcedureForInitialAssignment {
+		double policyProbability;
+		boolean shuffleActivated;
+
+		public ProcedureForInitialAssignment(TypeOfProcedure typeOfProcedure) {
+			switch (typeOfProcedure) {
+				case randomisedStructure:
+					policyProbability = 0.5;
+					shuffleActivated = true;
+					break;
+				case randomisedPolicy:
+					policyProbability = Math.random();
+					shuffleActivated = false;
+					break;
+				default:
+					policyProbability = 0.5;
+					shuffleActivated = false;
+			}
+		}
+	}
+
 	private class SolutionPoint {
 		private TransformIntoSimpleIPOMDP transformationProcess;
 		private SpecificationForSimpleIPOMDP specification;
@@ -974,7 +997,7 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 		public SolutionPoint() {
 		}
 
-		public SolutionPoint(TransformIntoSimpleIPOMDP transformationProcess, SpecificationForSimpleIPOMDP specification, Parameters parameters) throws PrismException {
+		public SolutionPoint(TransformIntoSimpleIPOMDP transformationProcess, SpecificationForSimpleIPOMDP specification, Parameters parameters, ProcedureForInitialAssignment procedureForInitialAssignment) throws PrismException {
 			this.initialState = transformationProcess.simpleIPOMDP.initialState;
 			this.transformationProcess = transformationProcess;
 			this.specification = specification;
@@ -983,10 +1006,10 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 			this.objective = (specification.isRewardSpecification ? 1e6 : 1.0);
 			this.objective = (specification.objectiveDirection == GRB.MAXIMIZE ? 1 - this.objective : this.objective);
 			this.variables = new Variables();
-			VariableHandler.initialiseVariables(this.variables, transformationProcess.simpleIPOMDP, specification);
+			VariableHandler.initialiseVariables(this.variables, transformationProcess.simpleIPOMDP, specification, procedureForInitialAssignment);
 		}
 
-		public boolean GetCloserTowardsOptimum() throws PrismException {
+		public boolean GetCloserTowardsOptimum() {
 			Variables newVariables;
 
 			if (parameters.trustRegion <= parameters.regionThreshold || iterationsLeft == 0) return false;
@@ -1053,8 +1076,8 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 		// Return result vector
 		ModelCheckerResult res = new ModelCheckerResult();
 		res.soln = new double[ipomdp.getNumStates()];
-		res.soln[ipomdp.getFirstInitialState()] = applyIterativeAlgorithm(product.ipomdp, product.rewards, product.remain, product.target, product.initialState, product.observationList, minMax);
-		//res.soln[ipomdp.getFirstInitialState()] = applyGeneticAlgorithm(product.ipomdp, product.rewards, product.remain, product.target, product.initialState, product.observationList, minMax);
+		//res.soln[ipomdp.getFirstInitialState()] = applyIterativeAlgorithm(product.ipomdp, product.rewards, product.remain, product.target, product.initialState, product.observationList, minMax);
+		res.soln[ipomdp.getFirstInitialState()] = applyGeneticAlgorithm(product.ipomdp, product.rewards, product.remain, product.target, product.initialState, product.observationList, minMax);
 		return res;
 	}
 
@@ -1088,7 +1111,7 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 
 			nonInfiniteIPOMDP.addActionLabelledChoice(indexOfInfState, distribution, numChoices);
 			nonInfiniteRewards.setTransitionReward(indexOfInfState, numChoices, 10000.0);
-			
+
 			indexOfInfState = infReward.nextSetBit(indexOfInfState + 1);
 		}
 
@@ -1108,12 +1131,16 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 		// Return result vector
 		ModelCheckerResult res = new ModelCheckerResult();
 		res.soln = new double[ipomdp.getNumStates()];
-		res.soln[ipomdp.getFirstInitialState()] = applyIterativeAlgorithm(product.ipomdp, product.rewards, product.remain, product.target, product.initialState, product.observationList, minMax);
-		//res.soln[ipomdp.getFirstInitialState()] = applyGeneticAlgorithm(product.ipomdp, product.rewards, product.remain, product.target, product.initialState, product.observationList, minMax);
+		//res.soln[ipomdp.getFirstInitialState()] = applyIterativeAlgorithm(product.ipomdp, product.rewards, product.remain, product.target, product.initialState, product.observationList, minMax);
+		res.soln[ipomdp.getFirstInitialState()] = applyGeneticAlgorithm(product.ipomdp, product.rewards, product.remain, product.target, product.initialState, product.observationList, minMax);
 		return res;
 	}
 
-	public double applyIterativeAlgorithm(IPOMDP<Double> ipomdp, MDPRewards<Double> mdpRewards, BitSet remain, BitSet target, int initialState, int[] observationList, MinMax minMax) throws PrismException {
+	/**
+	 * Simple framework which runs the algorithm multiple times and remembers the best value
+	 * Very inefficient compared to the genetic approach
+	 */
+	private double applyIterativeAlgorithm(IPOMDP<Double> ipomdp, MDPRewards<Double> mdpRewards, BitSet remain, BitSet target, int initialState, int[] observationList, MinMax minMax) throws PrismException {
 		try {
 			env = new GRBEnv("gurobi.log");
 			env.set(GRB.IntParam.OutputFlag, 0);
@@ -1126,8 +1153,11 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 		boolean hasBeenAssigned = false;
 		SolutionPoint bestPoint = new SolutionPoint();
 		for (int attempt = 0; attempt < numAttempts; attempt++) {
+			// Choose the procedure for the initial assignment
+			ProcedureForInitialAssignment procedureForInitialAssignment = new ProcedureForInitialAssignment(TypeOfProcedure.uniformPolicy);
+
 			// Construct the binary/simple version of the IPOMDP
-			TransformIntoSimpleIPOMDP transformationProcess = new TransformIntoSimpleIPOMDP(ipomdp, mdpRewards, initialState, true, observationList);
+			TransformIntoSimpleIPOMDP transformationProcess = new TransformIntoSimpleIPOMDP(ipomdp, mdpRewards, initialState, observationList, procedureForInitialAssignment);
 
 			// Compute specification associated with the binary/simple version of the IPOMDP
 			SpecificationForSimpleIPOMDP simpleSpecification = new SpecificationForSimpleIPOMDP(transformationProcess, mdpRewards, remain, target, minMax);
@@ -1136,12 +1166,10 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 			Parameters parameters = new Parameters(1e4, 1.5, 1.5, 1e-4);
 
 			// Create solution point
-			SolutionPoint solutionPoint = new SolutionPoint(transformationProcess, simpleSpecification, parameters);
+			SolutionPoint solutionPoint = new SolutionPoint(transformationProcess, simpleSpecification, parameters, procedureForInitialAssignment);
 
 			// Converge the point
-			while (solutionPoint.GetCloserTowardsOptimum() == true) {
-				System.out.println(solutionPoint.objective);
-			}
+			while (solutionPoint.GetCloserTowardsOptimum() == true);
 
 			// Update the best point
 			if (hasBeenAssigned == false || solutionPoint.specification.objectiveDirection * solutionPoint.objective < solutionPoint.specification.objectiveDirection * bestPoint.objective) {
@@ -1153,7 +1181,10 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 		return bestPoint.variables.main[bestPoint.initialState];
 	}
 
-	public double applyGeneticAlgorithm(IPOMDP<Double> ipomdp, MDPRewards<Double> mdpRewards, BitSet remain, BitSet target, int initialState, int[] observationList, MinMax minMax) throws PrismException {
+	/**
+	 * Genetic framework which supports both randomised policy and randomised structure
+	 */
+	private double applyGeneticAlgorithm(IPOMDP<Double> ipomdp, MDPRewards<Double> mdpRewards, BitSet remain, BitSet target, int initialState, int[] observationList, MinMax minMax) throws PrismException {
 		try {
 			env = new GRBEnv("gurobi.log");
 			env.set(GRB.IntParam.OutputFlag, 0);
@@ -1166,8 +1197,11 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 		int populationSize = 32;
 		ArrayList<SolutionPoint> population = new ArrayList<>();
 		for (int i = 0; i < populationSize; i++) {
+			// Choose the procedure for creating the initial assignment
+			ProcedureForInitialAssignment procedureForInitialAssignment = new ProcedureForInitialAssignment(TypeOfProcedure.randomisedStructure);
+
 			// Construct the binary/simple version of the IPOMDP
-			TransformIntoSimpleIPOMDP transformationProcess = new TransformIntoSimpleIPOMDP(ipomdp, mdpRewards, initialState, true, observationList);
+			TransformIntoSimpleIPOMDP transformationProcess = new TransformIntoSimpleIPOMDP(ipomdp, mdpRewards, initialState, observationList, procedureForInitialAssignment);
 
 			// Compute specification associated with the binary/simple version of the IPOMDP
 			SpecificationForSimpleIPOMDP simpleSpecification = new SpecificationForSimpleIPOMDP(transformationProcess, mdpRewards, remain, target, minMax);
@@ -1176,7 +1210,7 @@ public class IPOMDPModelChecker extends ProbModelChecker {
 			Parameters parameters = new Parameters(1e4, 1.5, 1.5, 1e-4);
 
 			// Add solution point to queue
-			population.add(new SolutionPoint(transformationProcess, simpleSpecification, parameters));
+			population.add(new SolutionPoint(transformationProcess, simpleSpecification, parameters, procedureForInitialAssignment));
 		}
 
 		while (population.size() > 1) {
